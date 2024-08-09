@@ -13,12 +13,12 @@ import {
 } from "firebase/firestore"; 
 import { db } from './firebase';
 import html2canvas from 'html2canvas';
-
 export default function Home() {
   const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState({ name: '', quantity: '' });
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState(null);  // State for error handling
   const itemsRef = useRef(null);
 
   useEffect(() => {
@@ -31,72 +31,101 @@ export default function Home() {
       setItems(itemsArr);
 
       const calculateTotal = () => {
-        const totalQuantity = itemsArr.reduce((sum, item) => sum + item.quantity, 0);
+        const totalQuantity = itemsArr.reduce((sum, item) => {
+          const quantity = parseFloat(item.quantity);
+          return !isNaN(quantity) ? sum + quantity : sum;
+        }, 0);
         setTotal(totalQuantity);
       };
       calculateTotal();
+    }, (error) => {
+      console.error("Error fetching items: ", error);
+      setError("Failed to fetch items. Please try again later.");
     });
+
     return () => unsubscribe();
   }, []);
 
   const addItem = async (e) => {
     e.preventDefault();
-    if (newItem.name !== '' && newItem.quantity !== '') {
-      const q = query(collection(db, 'pantryItems'), where('name', '==', newItem.name.trim()));
-      const querySnapshot = await getDocs(q);
+    try {
+      if (newItem.name !== '' && newItem.quantity !== '') {
+        const q = query(collection(db, 'pantryItems'), where('name', '==', newItem.name.trim()));
+        const querySnapshot = await getDocs(q);
 
-      if (!querySnapshot.empty) {
-        const existingItem = querySnapshot.docs[0];
-        const existingItemRef = doc(db, 'pantryItems', existingItem.id);
-        const updatedQuantity = existingItem.data().quantity + parseFloat(newItem.quantity);
+        if (!querySnapshot.empty) {
+          const existingItem = querySnapshot.docs[0];
+          const existingItemRef = doc(db, 'pantryItems', existingItem.id);
+          const updatedQuantity = existingItem.data().quantity + parseFloat(newItem.quantity);
 
-        await updateDoc(existingItemRef, { quantity: updatedQuantity });
-      } else {
-        await addDoc(collection(db, 'pantryItems'), {
-          name: newItem.name.trim(),
-          quantity: parseFloat(newItem.quantity),
-        });
+          await updateDoc(existingItemRef, { quantity: updatedQuantity });
+        } else {
+          await addDoc(collection(db, 'pantryItems'), {
+            name: newItem.name.trim(),
+            quantity: parseFloat(newItem.quantity),
+          });
+        }
+
+        setNewItem({ name: '', quantity: '' });
       }
-
-      setNewItem({ name: '', quantity: '' });
+    } catch (err) {
+      console.error("Error adding item: ", err);
+      setError("Failed to add item. Please try again later.");
     }
   };
 
   const deleteItem = async (id) => {
-    await deleteDoc(doc(db, 'pantryItems', id));
+    try {
+      await deleteDoc(doc(db, 'pantryItems', id));
+    } catch (err) {
+      console.error("Error deleting item: ", err);
+      setError("Failed to delete item. Please try again later.");
+    }
   };
 
   const exportAsPNG = async () => {
-    const element = itemsRef.current;
-    const canvas = await html2canvas(element);
-    const data = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = data;
-    link.download = 'pantry_items.png';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const element = itemsRef.current;
+      const canvas = await html2canvas(element);
+      const data = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = data;
+      link.download = 'pantry_items.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Error exporting as PNG: ", err);
+      setError("Failed to export as PNG. Please try again later.");
+    }
   };
 
   const exportAsNote = () => {
-    const itemsText = items.map(item => `${item.name}: ${item.quantity}`).join('\n');
-    const blob = new Blob([itemsText], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'pantry_items.txt';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const itemsText = items.map(item => `${item.name}: ${item.quantity}`).join('\n');
+      const blob = new Blob([itemsText], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'pantry_items.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Error exporting as note: ", err);
+      setError("Failed to export as note. Please try again later.");
+    }
   };
 
   const filteredItems = items.filter(item => 
-    item.name.toLowerCase().includes(search.toLowerCase())
+    item.name && item.name.toLowerCase().includes(search.toLowerCase())
   );
+  
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gray-100">
       <div className="w-full max-w-3xl bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-4xl font-bold text-center mb-6">Pantry Tracker</h1>
+        {error && <div className="text-red-500 mb-4">{error}</div>} {/* Display error message */}
         <form onSubmit={addItem} className="flex flex-col sm:flex-row items-center mb-6">
           <input
             type="text"
