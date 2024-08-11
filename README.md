@@ -21,7 +21,6 @@ This was a solo project. The pantry tracking and recipe suggestion application l
   <img src="https://img.shields.io/badge/-CSS-blue?&style=for-the-badge&logo=css3&logoColor=white" />
   <img src="https://img.shields.io/badge/-JavaScript-e8d82a?&style=for-the-badge&logo=javascript&logoColor=white" />
   <img src="https://img.shields.io/badge/-VSCode-364559?&style=for-the-badge&logoColor=white" />
-  <img src="https://img.shields.io/badge/-GroqCloud API-364559?&style=for-the-badge&logoColor=white" />
   <img src="https://img.shields.io/badge/-MUI Material UI-364559?&style=for-the-badge&logoColor=white" />
 </div>
 
